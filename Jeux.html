@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeu de Mémoire</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #00ffff;
+    }
+    .board-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 800px;
+    }
+    .card {
+      width: 80px;
+      height: 80px;
+      margin: 20px; 
+      font-size: 55px; 
+      border: 3px solid #000000; 
+      cursor: pointer;
+      position: relative;
+      perspective: 1000px;
+    }
+    .front,
+    .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+    }
+    .front {
+      transform: rotateY(180deg);
+    }
+    .flipped .front {
+      transform: rotateY(0deg);
+    }
+    .matched {
+      background-color: lightgreen;
+    }
+    .flipped {
+      background-color: rgb(251, 255, 0);
+    }
+    .card:hover, .card:active {
+      background-color: lightblue;
+    }
+    .red {
+      color: red;
+    }
+    .green-bg {
+      background-color: lightgreen;
+    }
+    .red-bg {
+      background-color: lightcoral;
+    }
+  </style>
+</head>
+<body>
+  <div id="memory-board" class="board-container"></div>
+  <button id="restart-btn">Rejouer</button>
+  <div id="result-message" style="display: none;"></div>
+  <script>
+    const cardFaces = ['🍎', '🍌', '🍒', '🍓', '🍊', '🍋', '🍇', '🍉', '🍍', '🍐', '🍑', '🥝', '🥥', '🍈', '🍏', '🍒', '🍅', '🌽'];
+    let cardsInPlay = [];
+    let flippedCards = [];
+    let numPairsFound = 0;
+    let canFlip = false;
+    let activePlayer = 0; // 0 pour le joueur vert, 1 pour le joueur rouge
+    let pairsGreen = 0;
+    let pairsRed = 0;
+
+    function createBoard() {
+      const board = document.getElementById('memory-board');
+      const cardsCount = cardFaces.length * 2; // Nombre total de cartes
+      const numRows = 6; // Nombre de rangées
+      const numCols = cardsCount / numRows; // Nombre de colonnes
+
+      const tempFaces = cardFaces.concat(cardFaces); // Tableau temporaire avec deux fois chaque fruit
+      const shuffledFaces = shuffle(tempFaces); // Mélange aléatoire du tableau temporaire
+
+      for (let row = 0; row < numRows; row++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.classList.add('row');
+        board.appendChild(rowDiv);
+
+        for (let col = 0; col < numCols; col++) {
+          const index = row * numCols + col;
+          const face = shuffledFaces[index];
+
+          const card = document.createElement('div');
+          card.classList.add('card');
+          card.setAttribute('data-face', face);
+          card.innerHTML = '<span class="back"></span><span class="front">' + face + '</span>';
+          rowDiv.appendChild(card);
+        }
+      }
+
+      setTimeout(() => {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+          const frontFace = card.querySelector('.front');
+          frontFace.style.visibility = 'hidden'; // Cacher le fruit sur chaque carte
+          card.addEventListener('click', flipCard);
+        });
+        canFlip = true; // Rendre les cartes cliquables après la période de mémorisation
+      }, 1);
+    }
+
+    function flipCard() {
+      if (!canFlip || this.classList.contains('flipped') || flippedCards.length === 2) {
+        return;
+      }
+
+      this.classList.add('flipped');
+      flippedCards.push(this);
+
+      const frontFace = this.querySelector('.front');
+      frontFace.style.visibility = 'visible'; // Afficher le fruit
+
+      const colors = ['green', 'red']; // Couleurs pour les joueurs
+      const bgColorClass = colors[activePlayer] + '-bg';
+      this.classList.add(bgColorClass); // Ajouter la classe de fond correspondant au joueur actif
+
+      if (flippedCards.length === 2) {
+        setTimeout(checkMatch, 1000);
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      const face1 = card1.getAttribute('data-face');
+      const face2 = card2.getAttribute('data-face');
+
+      if (face1 === face2) {
+        cardsInPlay.push(card1, card2);
+        numPairsFound++;
+        const colors = ['green', 'red']; // Couleurs pour les joueurs
+        const colorClass = colors[activePlayer];
+        card1.classList.add('matched', colorClass);
+        card2.classList.add('matched', colorClass);
+
+        if (activePlayer === 0) {
+          pairsGreen++;
+        } else {
+          pairsRed++;
+        }
+
+        if (numPairsFound === cardFaces.length) {
+          showResult();
+        } else {
+          // Le joueur rejoue s'il a trouvé une paire
+          canFlip = true;
+        }
+      } else {
+        // Changement de joueur
+        activePlayer = activePlayer === 0 ? 1 : 0;
+        const colors = ['green', 'red']; // Couleurs pour les joueurs
+        const colorClass = colors[activePlayer];
+        const playerText = activePlayer === 0 ? 'Vert' : 'Rouge';
+        setTimeout(() => {
+          card1.classList.remove('flipped', 'green-bg', 'red-bg'); // Retirer les classes de couleur du joueur précédent
+          card2.classList.remove('flipped', 'green-bg', 'red-bg');
+          const frontFace1 = card1.querySelector('.front');
+          const frontFace2 = card2.querySelector('.front');
+          frontFace1.style.visibility = 'hidden'; // Cacher le fruit
+          frontFace2.style.visibility = 'hidden'; // Cacher le fruit
+          canFlip = true; // Autoriser le joueur suivant à jouer
+        }, 1000);
+      }
+
+      flippedCards = [];
+    }
+
+    function showResult() {
+      const resultMessage = document.getElementById('result-message');
+      resultMessage.style.display = 'block';
+
+      if (pairsGreen > pairsRed) {
+        alert('Félicitations, le joueur Vert a le plus de paires !');
+      } else if (pairsGreen < pairsRed) {
+        alert('Félicitations, le joueur Rouge a le plus de paires !');
+      } else {
+        alert('C\'est un match nul, les deux joueurs ont le même nombre de paires !');
+      }
+    }
+
+    function shuffle(array) {
+      let currentIndex = array.length;
+      let temporaryValue, randomIndex;
+
+      while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+      }
+
+      return array;
+    }
+
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      const board = document.getElementById('memory-board');
+      board.innerHTML = '';
+      cardsInPlay = [];
+      flippedCards = [];
+      numPairsFound = 0;
+      activePlayer = 0; // Réinitialiser le joueur actif
+      pairsGreen = 0;
+      pairsRed = 0;
+      canFlip = false;
+      createBoard();
+      document.getElementById('result-message').style.display = 'none'; // Cacher le message de résultat
+    });
+
+    createBoard();
+  </script>
+</body>
+</html>
